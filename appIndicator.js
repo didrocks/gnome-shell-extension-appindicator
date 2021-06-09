@@ -724,11 +724,28 @@ class AppIndicatorsIconActor extends St.Icon {
             icon = this._indicator.overlayIcon;
             break;
         }
+        
+        let name_alt = null;
+        for (let cust_ics of this._custom_icon_array) {
+            if (this._indicator.id == cust_ics[0]){
+                name_alt = cust_ics[1]
+                }
+        }
 
         const [name, pixmap, theme] = icon;
         let gicon = null;
         try {
-            if (name && name.length) {
+            if ((name && name.length) && (name_alt && name_alt.length)) {
+        	gicon = await this._cacheOrCreateIconByName(iconSize, name_alt, theme);
+        	if (!gicon){
+        		gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);}
+                if (!gicon && pixmap)
+                    gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
+            } else if ((pixmap && pixmap.length) && (name_alt && name_alt.length)) {
+                gicon = await this._cacheOrCreateIconByName(iconSize, name_alt, theme);
+                if (!gicon)
+                    gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);   
+            } else if (name && name.length) {
                 gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);
                 if (!gicon && pixmap)
                     gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
@@ -759,6 +776,7 @@ class AppIndicatorsIconActor extends St.Icon {
             ? SNIconType.ATTENTION : SNIconType.NORMAL;
 
         this._updateIconSize();
+        this._updateCustomIcons();
         this._updateIconByType(iconType, this._iconSize);
     }
 
@@ -798,6 +816,17 @@ class AppIndicatorsIconActor extends St.Icon {
         } else if (this._defaultIconSize) {
             this._iconSize = this._defaultIconSize;
             delete this._defaultIconSize;
+        }
+    }
+    
+    _updateCustomIcons() {
+        const settings = SettingsManager.getDefaultGSettings();
+        const custom_icon_array_settings = settings.get_strv('custom-icons');
+        this._custom_icon_array = [];
+        if (custom_icon_array_settings.length > 0){
+                for (let i=0; i< custom_icon_array_settings.length; i=i+2){
+                    this._custom_icon_array.push([custom_icon_array_settings[i], custom_icon_array_settings[i+1]])
+                }
         }
     }
 });

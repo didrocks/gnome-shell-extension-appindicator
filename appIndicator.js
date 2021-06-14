@@ -412,6 +412,7 @@ class AppIndicatorsIconActor extends St.Icon {
 
         const settings = SettingsManager.getDefaultGSettings();
         Util.connectSmart(settings, 'changed::icon-size', this, this._invalidateIcon);
+        Util.connectSmart(settings, 'changed::custom-icons', this, this._invalidateIcon);
 
         Util.connectSmart(themeContext, 'notify::scale-factor', this, tc => {
             this.height = iconSize * tc.scale_factor;
@@ -724,27 +725,27 @@ class AppIndicatorsIconActor extends St.Icon {
             icon = this._indicator.overlayIcon;
             break;
         }
-        
-        let name_alt = null;
-        for (let cust_ics of this._custom_icon_array) {
-            if (this._indicator.id == cust_ics[0]){
-                name_alt = cust_ics[1]
-                }
+
+        let nameAlt = null;
+        for (let customIcon of this.customIconArray) {
+            if (this._indicator.id === customIcon[0])
+                nameAlt = customIcon[1];
+
         }
 
         const [name, pixmap, theme] = icon;
         let gicon = null;
         try {
-            if ((name && name.length) && (name_alt && name_alt.length)) {
-        	gicon = await this._cacheOrCreateIconByName(iconSize, name_alt, theme);
-        	if (!gicon){
-        		gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);}
+            if ((name && name.length) && (nameAlt && nameAlt.length)) {
+                gicon = await this._cacheOrCreateIconByName(iconSize, nameAlt, theme);
+                if (!gicon)
+                    gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);
                 if (!gicon && pixmap)
                     gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
-            } else if ((pixmap && pixmap.length) && (name_alt && name_alt.length)) {
-                gicon = await this._cacheOrCreateIconByName(iconSize, name_alt, theme);
+            } else if ((pixmap && pixmap.length) && (nameAlt && nameAlt.length)) {
+                gicon = await this._cacheOrCreateIconByName(iconSize, nameAlt, theme);
                 if (!gicon)
-                    gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);   
+                    gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
             } else if (name && name.length) {
                 gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);
                 if (!gicon && pixmap)
@@ -752,7 +753,6 @@ class AppIndicatorsIconActor extends St.Icon {
             } else if (pixmap) {
                 gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
             }
-
             this._setGicon(iconType, gicon, iconSize);
         } catch (e) {
             /* We handle the error messages already */
@@ -818,15 +818,15 @@ class AppIndicatorsIconActor extends St.Icon {
             delete this._defaultIconSize;
         }
     }
-    
+
     _updateCustomIcons() {
         const settings = SettingsManager.getDefaultGSettings();
-        const custom_icon_array_settings = settings.get_strv('custom-icons');
-        this._custom_icon_array = [];
-        if (custom_icon_array_settings.length > 0){
-                for (let i=0; i< custom_icon_array_settings.length; i=i+2){
-                    this._custom_icon_array.push([custom_icon_array_settings[i], custom_icon_array_settings[i+1]])
-                }
+        const customIconArraySettings = settings.get_strv('custom-icons');
+        this.customIconArray = [];
+        if (customIconArraySettings.length > 0) {
+            for (let i = 0; i < customIconArraySettings.length; i += 2)
+                this.customIconArray.push([customIconArraySettings[i], customIconArraySettings[i + 1]]);
+
         }
     }
 });

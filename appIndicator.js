@@ -412,7 +412,10 @@ class AppIndicatorsIconActor extends St.Icon {
 
         const settings = SettingsManager.getDefaultGSettings();
         Util.connectSmart(settings, 'changed::icon-size', this, this._invalidateIcon);
-        Util.connectSmart(settings, 'changed::custom-icons', this, this._invalidateIcon);
+        Util.connectSmart(settings, 'changed::custom-icons', this, () => {
+            this._updateCustomIcons();
+            this._invalidateIcon();
+        });
 
         Util.connectSmart(themeContext, 'notify::scale-factor', this, tc => {
             this.height = iconSize * tc.scale_factor;
@@ -421,6 +424,7 @@ class AppIndicatorsIconActor extends St.Icon {
 
         Util.connectSmart(this._indicator, 'ready', this, () => {
             this._updateIconClass();
+            this._updateCustomIcons();
             this._invalidateIcon();
         });
 
@@ -727,32 +731,17 @@ class AppIndicatorsIconActor extends St.Icon {
         }
 
         let nameAlt = null;
-        for (let customIcon of this.customIconArray) {
-            if (this._indicator.id === customIcon[0])
-                nameAlt = customIcon[1];
-
+        if (this.customIconArray) {
+            for (let customIcon of this.customIconArray) {
+                if (this._indicator.id === customIcon[0])
+                    nameAlt = customIcon[1];
+            }
         }
 
         const [name, pixmap, theme] = icon;
-        let gicon = null;
         try {
-            if ((name && name.length) && (nameAlt && nameAlt.length)) {
-                gicon = await this._cacheOrCreateIconByName(iconSize, nameAlt, theme);
-                if (!gicon)
-                    gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);
-                if (!gicon && pixmap)
-                    gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
-            } else if ((pixmap && pixmap.length) && (nameAlt && nameAlt.length)) {
-                gicon = await this._cacheOrCreateIconByName(iconSize, nameAlt, theme);
-                if (!gicon)
-                    gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
-            } else if (name && name.length) {
-                gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);
-                if (!gicon && pixmap)
-                    gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
-            } else if (pixmap) {
-                gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
-            }
+            let gicon = await this._getIcon(name, nameAlt, pixmap, theme, iconType, iconSize);
+            Util.Logger.warn(gicon);
             this._setGicon(iconType, gicon, iconSize);
         } catch (e) {
             /* We handle the error messages already */
@@ -761,6 +750,30 @@ class AppIndicatorsIconActor extends St.Icon {
                 Util.Logger.debug(`${this._indicator.id}, Impossible to load icon: ${e}`);
         }
     }
+
+    // updates the base icon
+    async _getIcon(name, nameAlt, pixmap, theme, iconType, iconSize) {
+        let gicon = null;
+        if ((name && name.length) && (nameAlt && nameAlt.length)) {
+            gicon = await this._cacheOrCreateIconByName(iconSize, nameAlt, theme);
+            if (!gicon)
+                gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);
+            if (!gicon && pixmap)
+                gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
+        } else if ((pixmap && pixmap.length) && (nameAlt && nameAlt.length)) {
+            gicon = await this._cacheOrCreateIconByName(iconSize, nameAlt, theme);
+            if (!gicon)
+                gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
+        } else if (name && name.length) {
+            gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);
+            if (!gicon && pixmap)
+                gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
+        } else if (pixmap) {
+            gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
+        }
+        return gicon;
+    }
+
 
     // updates the base icon
     _updateIcon() {

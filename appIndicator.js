@@ -412,6 +412,7 @@ class AppIndicatorsIconActor extends St.Icon {
 
         const settings = SettingsManager.getDefaultGSettings();
         Util.connectSmart(settings, 'changed::icon-size', this, this._invalidateIcon);
+        Util.connectSmart(settings, 'changed::custom-icons', this, this._invalidateIcon);
 
         Util.connectSmart(themeContext, 'notify::scale-factor', this, tc => {
             this.height = iconSize * tc.scale_factor;
@@ -726,16 +727,8 @@ class AppIndicatorsIconActor extends St.Icon {
         }
 
         const [name, pixmap, theme] = icon;
-        let gicon = null;
         try {
-            if (name && name.length) {
-                gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);
-                if (!gicon && pixmap)
-                    gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
-            } else if (pixmap) {
-                gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
-            }
-
+            let gicon = await this._getIcon(name, this.customIconName, pixmap, theme, iconType, iconSize);
             this._setGicon(iconType, gicon, iconSize);
         } catch (e) {
             /* We handle the error messages already */
@@ -744,6 +737,30 @@ class AppIndicatorsIconActor extends St.Icon {
                 Util.Logger.debug(`${this._indicator.id}, Impossible to load icon: ${e}`);
         }
     }
+
+    // updates the base icon
+    async _getIcon(name, nameAlt, pixmap, theme, iconType, iconSize) {
+        let gicon = null;
+        if ((name && name.length) && (nameAlt && nameAlt.length)) {
+            gicon = await this._cacheOrCreateIconByName(iconSize, nameAlt, theme);
+            if (!gicon)
+                gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);
+            if (!gicon && pixmap)
+                gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
+        } else if ((pixmap && pixmap.length) && (nameAlt && nameAlt.length)) {
+            gicon = await this._cacheOrCreateIconByName(iconSize, nameAlt, theme);
+            if (!gicon)
+                gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
+        } else if (name && name.length) {
+            gicon = await this._cacheOrCreateIconByName(iconSize, name, theme);
+            if (!gicon && pixmap)
+                gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
+        } else if (pixmap) {
+            gicon = await this._createIconFromPixmap(iconSize, pixmap, iconType);
+        }
+        return gicon;
+    }
+
 
     // updates the base icon
     _updateIcon() {
@@ -782,7 +799,7 @@ class AppIndicatorsIconActor extends St.Icon {
     _invalidateIcon() {
         this._iconCache.clear();
         this._cancelLoading();
-
+        this._updateCustomIcon();
         this._updateIcon();
         this._updateOverlayIcon();
     }
@@ -798,6 +815,18 @@ class AppIndicatorsIconActor extends St.Icon {
         } else if (this._defaultIconSize) {
             this._iconSize = this._defaultIconSize;
             delete this._defaultIconSize;
+        }
+    }
+
+    _updateCustomIcon() {
+        const settings = SettingsManager.getDefaultGSettings();
+        const customIconArraySettings = settings.get_strv('custom-icons');
+        this.customIconName = null;
+        if (customIconArraySettings.length > 0) {
+            for (let i = 0; i < customIconArraySettings.length; i += 2) {
+                if (customIconArraySettings[i] === this._indicator.id)
+                    this.customIconName = customIconArraySettings[i + 1];
+            }
         }
     }
 });

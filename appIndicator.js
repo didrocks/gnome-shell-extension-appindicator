@@ -412,10 +412,7 @@ class AppIndicatorsIconActor extends St.Icon {
 
         const settings = SettingsManager.getDefaultGSettings();
         Util.connectSmart(settings, 'changed::icon-size', this, this._invalidateIcon);
-        Util.connectSmart(settings, 'changed::custom-icons', this, () => {
-            this._updateCustomIcons();
-            this._invalidateIcon();
-        });
+        Util.connectSmart(settings, 'changed::custom-icons', this, this._invalidateIcon);
 
         Util.connectSmart(themeContext, 'notify::scale-factor', this, tc => {
             this.height = iconSize * tc.scale_factor;
@@ -424,7 +421,6 @@ class AppIndicatorsIconActor extends St.Icon {
 
         Util.connectSmart(this._indicator, 'ready', this, () => {
             this._updateIconClass();
-            this._updateCustomIcons();
             this._invalidateIcon();
         });
 
@@ -730,18 +726,9 @@ class AppIndicatorsIconActor extends St.Icon {
             break;
         }
 
-        let nameAlt = null;
-        if (this.customIconArray) {
-            for (let customIcon of this.customIconArray) {
-                if (this._indicator.id === customIcon[0])
-                    nameAlt = customIcon[1];
-            }
-        }
-
         const [name, pixmap, theme] = icon;
         try {
-            let gicon = await this._getIcon(name, nameAlt, pixmap, theme, iconType, iconSize);
-            Util.Logger.warn(gicon);
+            let gicon = await this._getIcon(name, this.customIconName, pixmap, theme, iconType, iconSize);
             this._setGicon(iconType, gicon, iconSize);
         } catch (e) {
             /* We handle the error messages already */
@@ -789,7 +776,6 @@ class AppIndicatorsIconActor extends St.Icon {
             ? SNIconType.ATTENTION : SNIconType.NORMAL;
 
         this._updateIconSize();
-        this._updateCustomIcons();
         this._updateIconByType(iconType, this._iconSize);
     }
 
@@ -813,7 +799,7 @@ class AppIndicatorsIconActor extends St.Icon {
     _invalidateIcon() {
         this._iconCache.clear();
         this._cancelLoading();
-
+        this._updateCustomIcon();
         this._updateIcon();
         this._updateOverlayIcon();
     }
@@ -832,14 +818,15 @@ class AppIndicatorsIconActor extends St.Icon {
         }
     }
 
-    _updateCustomIcons() {
+    _updateCustomIcon() {
         const settings = SettingsManager.getDefaultGSettings();
         const customIconArraySettings = settings.get_strv('custom-icons');
-        this.customIconArray = [];
+        this.customIconName = null;
         if (customIconArraySettings.length > 0) {
-            for (let i = 0; i < customIconArraySettings.length; i += 2)
-                this.customIconArray.push([customIconArraySettings[i], customIconArraySettings[i + 1]]);
-
+            for (let i = 0; i < customIconArraySettings.length; i += 2) {
+                if (customIconArraySettings[i] === this._indicator.id)
+                    this.customIconName = customIconArraySettings[i + 1];
+            }
         }
     }
 });

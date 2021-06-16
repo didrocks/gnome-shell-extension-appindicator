@@ -175,7 +175,7 @@ class AppIndicatorPreferences extends Gtk.Box {
 
         const customTreeView = new Gtk.TreeView({ expand: false,
             model: customListStore });
-        const customTitles = ['Original Icon Name', 'Custom Icon Name'];
+        const customTitles = ['Indicator ID', 'Custom Icon Name'];
         const originalIconColumn = new Gtk.TreeViewColumn({ title: customTitles[0], sizing: Gtk.TreeViewColumnSizing.AUTOSIZE });
         const customIconColumn = new Gtk.TreeViewColumn({ title: customTitles[1], sizing: Gtk.TreeViewColumnSizing.AUTOSIZE });
 

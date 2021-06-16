@@ -40,6 +40,7 @@ class AppIndicatorsIndicatorBaseStatusIcon extends PanelMenu.Button {
         const settings = SettingsManager.getDefaultGSettings();
         Util.connectSmart(settings, 'changed::icon-opacity', this, this._updateOpacity);
         Util.connectSmart(settings, 'changed::tray-pos', this, this._showIfReady);
+        Util.connectSmart(settings, 'changed::custom-icons', this, this._updateCustomIcon);
         this.connect('notify::hover', () => this._onHoverChanged());
 
         this._setIconActor(iconActor);
@@ -60,6 +61,7 @@ class AppIndicatorsIndicatorBaseStatusIcon extends PanelMenu.Button {
         }
 
         this._icon = icon;
+        this._updateCustomIcon();
         this._updateEffects();
     }
 
@@ -142,6 +144,18 @@ class AppIndicatorsIndicatorBaseStatusIcon extends PanelMenu.Button {
             brightnessContrastEffect.set_contrast(contrastValue);
         } else if (brightnessContrastEffect) {
             this._icon.remove_effect(brightnessContrastEffect);
+        }
+    }
+
+    _updateCustomIcon() {
+        const settings = SettingsManager.getDefaultGSettings();
+        const customIconArraySettings = settings.get_strv('custom-icons');
+        this._icon.customIconName = null;
+        if (customIconArraySettings.length > 0) {
+            for (let i = 0; i < customIconArraySettings.length; i += 2) {
+                if (customIconArraySettings[i] === this._icon._indicator.id)
+                    this._icon.customIconName = customIconArraySettings[i + 1];
+            }
         }
     }
 });
